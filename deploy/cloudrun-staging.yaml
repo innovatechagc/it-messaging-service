@@ -31,12 +31,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: latest
-              name: jwt-secret-staging
+              name: jwt-secret
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: latest
-              name: db-password-staging
+              name: db-password
 
         resources:
           limits:
