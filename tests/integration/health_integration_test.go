@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
+	"github.com/company/microservice-template/internal/auth"
 	"github.com/company/microservice-template/internal/handlers"
 	"github.com/company/microservice-template/internal/services"
 	testingPkg "github.com/company/microservice-template/internal/testing"
@@ -36,9 +36,12 @@ func (suite *IntegrationTestSuite) SetupSuite() {
 	
 	// Setup services
 	healthService := services.NewHealthService()
+	messagingService := services.NewMessagingService(nil, nil, nil)
+	fileService := services.NewFileService(nil, nil)
+	jwtManager := auth.NewJWTManager("test-secret", "test-issuer", 24)
 	logger := logger.NewLogger("debug")
 	
-	handlers.SetupRoutes(suite.router, healthService, logger)
+	handlers.SetupRoutes(suite.router, healthService, messagingService, fileService, jwtManager, logger)
 }
 
 func (suite *IntegrationTestSuite) TearDownSuite() {

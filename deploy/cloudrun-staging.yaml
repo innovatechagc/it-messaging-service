@@ -31,12 +31,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: latest
-              name: jwt-secret
+              name: it-chatbot-jwt-password
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: latest
-              name: db-password
+              name: it-chatbot-db-password
 
         resources:
           limits:

@@ -2,8 +2,6 @@ package featureflags
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 

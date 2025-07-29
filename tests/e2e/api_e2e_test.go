@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -37,7 +36,7 @@ func (suite *E2ETestSuite) SetupSuite() {
 	suite.containers = containers
 
 	// Setup JWT Manager
-	suite.jwtManager = auth.NewJWTManager("test-secret", "test-issuer")
+	suite.jwtManager = auth.NewJWTManager("test-secret", "test-issuer", 24)
 	
 	// Generate test token
 	token, err := suite.jwtManager.GenerateToken("test-user-id", "test@example.com", []string{"user"})
@@ -52,9 +51,11 @@ func (suite *E2ETestSuite) SetupSuite() {
 	
 	// Setup services
 	healthService := services.NewHealthService()
+	messagingService := services.NewMessagingService(nil, nil, nil)
+	fileService := services.NewFileService(nil, nil)
 	logger := logger.NewLogger("debug")
 	
-	handlers.SetupRoutes(suite.router, healthService, logger)
+	handlers.SetupRoutes(suite.router, healthService, messagingService, fileService, suite.jwtManager, logger)
 }
 
 func (suite *E2ETestSuite) TearDownSuite() {
