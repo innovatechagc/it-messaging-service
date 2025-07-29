@@ -47,7 +47,7 @@ steps:
       - "-c"
       - |
         # Deploy to Cloud Run using deploy command
-        gcloud run services deploy it-messaging-service-staging \
+        gcloud run deploy it-messaging-service-staging \
           --image=gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA \
           --region=us-east1 \
           --platform=managed \
@@ -70,7 +70,7 @@ steps:
       - |
         if [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "master" ]; then
           # Deploy to Cloud Run using deploy command
-          gcloud run services deploy it-messaging-service \
+          gcloud run deploy it-messaging-service \
             --image=gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA \
             --region=us-east1 \
             --platform=managed \
