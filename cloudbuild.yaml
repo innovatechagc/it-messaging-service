@@ -48,10 +48,20 @@ steps:
       - |
         # Replace PROJECT_ID placeholder in staging config
         sed 's/PROJECT_ID/$PROJECT_ID/g' deploy/cloudrun-staging.yaml > /tmp/cloudrun-staging.yaml
-        # Deploy to Cloud Run
-        gcloud run services replace /tmp/cloudrun-staging.yaml \
+        # Deploy to Cloud Run using deploy command (more robust than replace)
+        gcloud run services deploy it-messaging-service-staging \
+          --image=gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA \
           --region=us-east1 \
-          --platform=managed
+          --platform=managed \
+          --allow-unauthenticated \
+          --execution-environment=gen2 \
+          --cpu=0.5 \
+          --memory=256Mi \
+          --max-instances=10 \
+          --min-instances=1 \
+          --port=8080 \
+          --set-env-vars="ENVIRONMENT=test,LOG_LEVEL=info" \
+          --set-secrets="JWT_SECRET=it-chatbot-jwt-password:latest,DB_PASSWORD=it-chatbot-db-password:latest"
     id: "deploy-staging"
     waitFor: ["push-sha", "push-latest"]
 
@@ -62,12 +72,20 @@ steps:
       - "-c"
       - |
         if [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "master" ]; then
-          # Replace PROJECT_ID placeholder in production config
-          sed 's/PROJECT_ID/$PROJECT_ID/g' deploy/cloudrun-production.yaml > /tmp/cloudrun-production.yaml
-          # Deploy to Cloud Run
-          gcloud run services replace /tmp/cloudrun-production.yaml \
+          # Deploy to Cloud Run using deploy command (more robust than replace)
+          gcloud run services deploy it-messaging-service \
+            --image=gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA \
             --region=us-east1 \
-            --platform=managed
+            --platform=managed \
+            --allow-unauthenticated \
+            --execution-environment=gen2 \
+            --cpu=1 \
+            --memory=512Mi \
+            --max-instances=100 \
+            --min-instances=2 \
+            --port=8080 \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=warn" \
+            --set-secrets="JWT_SECRET=it-chatbot-jwt-password:latest,DB_PASSWORD=it-chatbot-db-password:latest"
           echo "Deployed to production"
         else
           echo "Skipping production deployment - not on main/master branch"
