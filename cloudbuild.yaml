@@ -16,9 +16,9 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/microservice-template:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/microservice-template:latest'
+      - 'gcr.io/$PROJECT_ID/it-messaging-service:latest'
       - '.'
     id: 'build'
     waitFor: ['test']
@@ -27,7 +27,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/microservice-template:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA'
     id: 'push-sha'
     waitFor: ['build']
 
@@ -76,12 +76,12 @@ steps:
 # Build options
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'
+  # machineType: 'E2_HIGHCPU_8'
 
 # Timeout for the entire build
 timeout: '1200s'
 
 # Images to be pushed to Container Registry
 images:
-  - 'gcr.io/$PROJECT_ID/microservice-template:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/microservice-template:latest'
+  - 'gcr.io/$PROJECT_ID/it-messaging-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/it-messaging-service:latest'
