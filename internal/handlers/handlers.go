@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/company/microservice-template/internal/auth"
 	"github.com/company/microservice-template/internal/domain"
 	"github.com/company/microservice-template/internal/middleware"
 	"github.com/company/microservice-template/internal/services"
@@ -17,14 +18,20 @@ type Handler struct {
 	logger        logger.Logger
 }
 
-func SetupRoutes(router *gin.Engine, healthService services.HealthService, logger logger.Logger) {
+func SetupRoutes(router *gin.Engine, healthService services.HealthService, messagingService services.MessagingService, fileService services.FileService, jwtManager *auth.JWTManager, logger logger.Logger) {
 	h := &Handler{
 		healthService: healthService,
 		logger:        logger,
 	}
 
+	// Initialize messaging handler
+	messagingHandler := NewMessagingHandler(messagingService, fileService, jwtManager, logger)
+
 	// Swagger documentation (protegido en producción)
 	router.GET("/swagger/*any", middleware.SwaggerAuth(), ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Serve uploaded files
+	router.Static("/uploads", "./uploads")
 
 	// API routes
 	api := router.Group("/api/v1")
@@ -33,9 +40,25 @@ func SetupRoutes(router *gin.Engine, healthService services.HealthService, logge
 		api.GET("/health", h.HealthCheck)
 		api.GET("/ready", h.ReadinessCheck)
 		
-		// Example routes (comentadas para testing)
-		// api.GET("/example", h.GetExample)
-		// api.POST("/example", h.CreateExample)
+		// Messaging routes
+		messaging := api.Group("/messaging")
+		messaging.Use(middleware.JWTAuth(jwtManager))
+		{
+			// Conversations
+			messaging.GET("/conversations", messagingHandler.GetConversations)
+			messaging.GET("/conversations/:id", messagingHandler.GetConversation)
+			messaging.POST("/conversations", messagingHandler.CreateConversation)
+			messaging.PATCH("/conversations/:id", messagingHandler.UpdateConversation)
+			
+			// Messages
+			messaging.GET("/conversations/:id/messages", messagingHandler.GetMessages)
+			messaging.POST("/conversations/:id/messages", messagingHandler.SendMessage)
+			messaging.GET("/messages/:id", messagingHandler.GetMessage)
+			
+			// Attachments
+			messaging.POST("/attachments/upload", messagingHandler.UploadAttachment)
+			messaging.GET("/attachments/:id", messagingHandler.GetAttachment)
+		}
 	}
 }
 

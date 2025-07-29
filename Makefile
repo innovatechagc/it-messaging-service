@@ -3,10 +3,11 @@
 .PHONY: help build run test clean docker-build docker-run docker-test lint format deps upgrade-deps
 
 # Variables
-APP_NAME=microservice-template
+APP_NAME=messaging-service
 DOCKER_IMAGE=$(APP_NAME):latest
 DOCKER_TEST_IMAGE=$(APP_NAME):test
-MIGRATION_DIR=./migrations
+MIGRATION_DIR=./scripts
+DB_URL=postgres://postgres:postgres@localhost:5432/messaging_service?sslmode=disable
 
 help: ## Mostrar ayuda
 	@echo "Comandos disponibles:"

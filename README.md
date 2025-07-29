@@ -1,283 +1,276 @@
-# Template de Microservicio Go
+# Messaging Service
 
-Template estandarizado para crear microservicios en Go que se despliegan en GCP Cloud Run. Incluye configuración para desarrollo local, testing, QA y producción.
+Servicio de mensajería en tiempo real para chatbots con soporte para múltiples canales de comunicación, archivos adjuntos y eventos pub/sub.
 
 ## 🚀 Características
 
-- **Framework**: Gin para HTTP server
-- **Logging**: Zap logger estructurado
-- **Métricas**: Prometheus integrado
-- **Secretos**: Integración con HashiCorp Vault
-- **Documentación**: Swagger/OpenAPI
-- **Testing**: Tests unitarios y de integración
-- **Docker**: Multi-stage builds optimizados
-- **CI/CD**: Configuración para diferentes entornos
+- ✅ **Conversaciones multi-canal** (WhatsApp, Web, Messenger, Instagram)
+- ✅ **Mensajes en tiempo real** con tipos de contenido variados
+- ✅ **Archivos adjuntos** con clasificación automática
+- ✅ **Caché con Redis** para alto rendimiento
+- ✅ **Eventos pub/sub** para integraciones
+- ✅ **Autenticación JWT** con middleware de seguridad
+- ✅ **API REST** completamente documentada con Swagger
+- ✅ **Base de datos PostgreSQL** con índices optimizados
+- ✅ **Logging estructurado** con Zap
+- ✅ **Health checks** y métricas con Prometheus
+- ✅ **Docker** y despliegue en Google Cloud Run
 
-## 📁 Estructura del Proyecto
+## 📋 Entidades Principales
 
-```
-├── cmd/                    # Comandos de la aplicación
-├── internal/              # Código interno de la aplicación
-│   ├── config/           # Configuración
-│   ├── handlers/         # Handlers HTTP
-│   ├── middleware/       # Middleware personalizado
-│   └── services/         # Lógica de negocio
-├── pkg/                  # Paquetes reutilizables
-│   ├── logger/          # Logger personalizado
-│   └── vault/           # Cliente de Vault
-├── scripts/             # Scripts de inicialización
-├── monitoring/          # Configuración de monitoreo
-├── .env.*              # Archivos de configuración por entorno
-├── docker-compose.yml  # Desarrollo local
-├── Dockerfile         # Imagen de producción
-└── Makefile          # Comandos de automatización
-```
+### Conversation
+- `id`: UUID único
+- `user_id`: ID del usuario
+- `channel`: Canal de comunicación (whatsapp, web, messenger, instagram)
+- `status`: Estado (active, closed, archived)
+- `created_at`, `updated_at`: Timestamps
 
-## 🛠️ Configuración Inicial
+### Message
+- `id`: UUID único
+- `conversation_id`: Referencia a conversación
+- `sender_type`: Tipo de remitente (user, bot, system)
+- `sender_id`: ID del remitente
+- `content`: Contenido del mensaje
+- `content_type`: Tipo de contenido (text, image, video, audio, file)
+- `metadata`: Datos adicionales en JSONB
+- `timestamp`: Fecha y hora del mensaje
 
-### 1. Clonar y configurar el proyecto
+### Attachment
+- `id`: UUID único
+- `message_id`: Referencia al mensaje
+- `url`: URL del archivo
+- `type`: Tipo de archivo (image, video, file, audio)
+- `size`: Tamaño en bytes
+- `filename`: Nombre original del archivo
 
+## 🛠 API Endpoints
+
+### Base path: `/api/v1/messaging`
+
+#### 🔁 Conversaciones
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/conversations` | Lista conversaciones activas |
+| `GET` | `/conversations/:id` | Detalles de una conversación |
+| `POST` | `/conversations` | Crea nueva conversación |
+| `PATCH` | `/conversations/:id` | Actualiza estado de conversación |
+
+#### ✉️ Mensajes
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/conversations/:id/messages` | Lista mensajes con paginación |
+| `POST` | `/conversations/:id/messages` | Envía nuevo mensaje |
+| `GET` | `/messages/:id` | Consulta mensaje individual |
+
+#### 📎 Archivos Adjuntos
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/attachments/upload` | Sube archivo y devuelve URL |
+| `GET` | `/attachments/:id` | Detalles de archivo adjunto |
+
+## 🚀 Inicio Rápido
+
+### Prerrequisitos
+
+- Go 1.21+
+- PostgreSQL 13+
+- Redis 6+ (opcional, para caché y eventos)
+- Docker y Docker Compose
+
+### Instalación
+
+1. **Clona el repositorio:**
 ```bash
-# Clonar el template
 git clone <repository-url>
-cd microservice-template
-
-# Copiar configuración de ejemplo
-cp .env.example .env.local
-
-# Instalar dependencias
-make deps
+cd messaging-service
 ```
 
-### 2. Configurar variables de entorno
+2. **Configura el entorno:**
+```bash
+cp .env.example .env
+# Edita .env con tus configuraciones
+```
 
-Edita `.env.local` con tus configuraciones:
+3. **Inicia la base de datos:**
+```bash
+docker-compose up -d postgres redis
+```
+
+4. **Ejecuta las migraciones:**
+```bash
+psql -h localhost -U postgres -d messaging_service -f scripts/init-messaging.sql
+```
+
+5. **Inicia el servicio:**
+```bash
+go mod tidy
+go run main.go
+```
+
+### Con Docker Compose
 
 ```bash
-# Configuración básica
-ENVIRONMENT=development
-PORT=8080
-LOG_LEVEL=debug
+docker-compose up -d
+```
 
+## 📖 Uso de la API
+
+### Autenticación
+
+Todas las rutas requieren un token JWT en el header:
+```bash
+Authorization: Bearer <your-jwt-token>
+```
+
+### Ejemplos de uso
+
+#### Crear conversación
+```bash
+curl -X POST http://localhost:8080/api/v1/messaging/conversations \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"channel": "web"}'
+```
+
+#### Enviar mensaje
+```bash
+curl -X POST http://localhost:8080/api/v1/messaging/conversations/{id}/messages \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender_type": "user",
+    "content": "Hola, necesito ayuda",
+    "content_type": "text",
+    "metadata": {"priority": "normal"}
+  }'
+```
+
+#### Subir archivo
+```bash
+curl -X POST http://localhost:8080/api/v1/messaging/attachments/upload \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@imagen.jpg"
+```
+
+## ⚙️ Configuración
+
+### Variables de Entorno Principales
+
+```bash
 # Base de datos
 DB_HOST=localhost
-DB_PORT=5432
+DB_NAME=messaging_service
 DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=microservice_dev
+DB_PASSWORD=your_password
 
-# Vault (comentado para desarrollo inicial)
-# VAULT_ADDR=http://localhost:8200
-# VAULT_TOKEN=dev-token
+# Redis (opcional)
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+
+# JWT
+JWT_SECRET=your-secret-key
+JWT_ISSUER=messaging-service
+
+# Archivos
+FILE_STORAGE_LOCAL_PATH=./uploads
+FILE_STORAGE_MAX_SIZE=10485760
+
+# Eventos
+EVENTS_PROVIDER=redis
+EVENTS_TOPIC=message.events
 ```
 
-## 🚀 Desarrollo Local
+## 🔧 Funcionalidades Técnicas
 
-### Opción 1: Ejecutar directamente
+### Caché con Redis
+- Conversaciones recientes cacheadas por 30 minutos
+- Mensajes cacheados por 10 minutos
+- Invalidación automática en actualizaciones
 
-```bash
-# Compilar y ejecutar
-make build
-make run
-
-# O directamente
-go run .
+### Eventos Pub/Sub
+Cuando se recibe un mensaje nuevo, se publica un evento:
+```json
+{
+  "type": "message.received",
+  "conversation_id": "uuid",
+  "message": { /* objeto mensaje completo */ },
+  "timestamp": "2025-01-22T10:30:00Z"
+}
 ```
 
-### Opción 2: Con Docker Compose (Recomendado)
+### Seguridad
+- Middleware JWT en todas las rutas protegidas
+- Validación de propiedad de recursos por usuario
+- Sanitización de archivos subidos
+- Límites de tamaño de archivo configurables
 
-```bash
-# Levantar todos los servicios (app, postgres, vault, redis, prometheus)
-make docker-dev
+## 📊 Monitoreo
 
-# Detener servicios
-make docker-down
+### Health Checks
+- `GET /api/v1/health` - Estado general
+- `GET /api/v1/ready` - Readiness para tráfico
+
+### Métricas Prometheus
+- Requests HTTP por endpoint
+- Duración de requests
+- Errores por tipo
+- Métricas de base de datos y Redis
+
+### Logs Estructurados
+```json
+{
+  "level": "info",
+  "timestamp": "2025-01-22T10:30:00Z",
+  "message": "Message sent",
+  "message_id": "uuid",
+  "conversation_id": "uuid",
+  "user_id": "user123"
+}
 ```
-
-Servicios disponibles:
-- **API**: http://localhost:8080
-- **Swagger**: http://localhost:8080/swagger/index.html
-- **Prometheus**: http://localhost:9090
-- **Vault**: http://localhost:8200
 
 ## 🧪 Testing
 
 ```bash
-# Ejecutar tests
-make test
+# Tests unitarios
+go test ./...
 
-# Tests con cobertura
-make test-coverage
+# Tests con coverage
+go test -cover ./...
 
-# Tests con Docker
-make docker-test
-
-# Linting
-make lint
+# Tests de integración
+go test -tags=integration ./tests/integration/...
 ```
 
-## 📊 Endpoints Disponibles
+## 🚢 Deployment
 
-### Health Checks
-- `GET /api/v1/health` - Estado del servicio
-- `GET /api/v1/ready` - Readiness check
-
-### Métricas
-- `GET /metrics` - Métricas de Prometheus
-
-### Documentación
-- `GET /swagger/index.html` - Documentación Swagger
-
-## 🔧 Configuración por Entornos
-
-### Desarrollo Local
-- Archivo: `.env.local`
-- Base de datos: PostgreSQL local
-- Vault: Opcional (comentado por defecto)
-- Logs: Debug level
-
-### Testing/QA
-- Archivo: `.env.test`
-- Base de datos: PostgreSQL de testing
-- Vault: Instancia de testing
-- Logs: Info level
-
-### Producción
-- Archivo: `.env.production`
-- Variables desde GCP Secret Manager o Vault
-- SSL requerido para BD
-- Logs: Warn level
-
-## 🐳 Docker
-
-### Desarrollo
+### Docker
 ```bash
-# Construir imagen
-make docker-build
-
-# Ejecutar contenedor
-make docker-run
+docker build -t messaging-service .
+docker run -p 8080:8080 messaging-service
 ```
 
-### Testing
+### Google Cloud Run
 ```bash
-# Ejecutar tests en contenedor
-make docker-test
+gcloud run deploy messaging-service \
+  --source . \
+  --platform managed \
+  --region us-central1 \
+  --set-env-vars="DB_HOST=your-db-host,REDIS_HOST=your-redis-host"
 ```
 
-## ☁️ Despliegue en GCP Cloud Run
+## 📚 Documentación API
 
-### Preparación
-1. Configurar gcloud CLI
-2. Habilitar Cloud Run API
-3. Configurar Container Registry
-
-### Deploy a Staging
-```bash
-# Build y push de imagen
-docker build -t gcr.io/PROJECT_ID/microservice-template:latest .
-docker push gcr.io/PROJECT_ID/microservice-template:latest
-
-# Deploy
-make deploy-staging
-```
-
-### Deploy a Producción
-```bash
-make deploy-prod
-```
-
-## 🔐 Manejo de Secretos
-
-### Con Vault (Recomendado)
-```go
-// Ejemplo de uso
-vaultClient, err := vault.NewClient(cfg.VaultConfig)
-secrets, err := vaultClient.GetSecret("secret/myapp/database")
-password := secrets["password"].(string)
-```
-
-### Variables de Entorno
-Para desarrollo local, usar archivos `.env.*`
-
-## 📈 Monitoreo y Métricas
-
-### Métricas Disponibles
-- `http_requests_total` - Total de requests HTTP
-- `http_request_duration_seconds` - Duración de requests
-
-### Prometheus
-Configuración en `monitoring/prometheus.yml`
-
-## 🔄 Personalización del Template
-
-### 1. Cambiar nombre del módulo
-Actualizar en `go.mod`:
-```go
-module github.com/company/tu-microservicio
-```
-
-### 2. Agregar nuevos endpoints
-```go
-// En internal/handlers/handlers.go
-api.GET("/tu-endpoint", h.TuHandler)
-```
-
-### 3. Agregar servicios externos
-```go
-// En internal/services/
-type ExternalService interface {
-    CallAPI() error
-}
-```
-
-### 4. Configurar base de datos
-Descomentar y configurar en:
-- `internal/config/config.go`
-- Scripts de migración en `scripts/`
-
-## 📝 Comandos Útiles
-
-```bash
-# Ver todos los comandos disponibles
-make help
-
-# Desarrollo
-make deps          # Instalar dependencias
-make build         # Compilar
-make run           # Ejecutar
-make test          # Tests
-make lint          # Linting
-make format        # Formatear código
-
-# Docker
-make docker-build  # Construir imagen
-make docker-dev    # Entorno completo
-make docker-test   # Tests en Docker
-
-# Documentación
-make swagger       # Generar docs Swagger
-```
+Una vez iniciado el servicio, la documentación Swagger estará disponible en:
+`http://localhost:8080/swagger/index.html`
 
 ## 🤝 Contribución
 
 1. Fork el proyecto
-2. Crear feature branch (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push al branch (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
+2. Crea una rama para tu feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit tus cambios (`git commit -m 'Agrega nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
 
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
-
-## 🆘 Soporte
-
-Para preguntas o problemas:
-1. Revisar la documentación
-2. Buscar en issues existentes
-3. Crear nuevo issue con detalles del problema
-
----
-
-**Nota**: Este template incluye ejemplos comentados para facilitar el desarrollo. Descomenta y configura según las necesidades de tu microservicio.

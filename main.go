@@ -2,20 +2,24 @@ package main
 
 import (
 	"context"
-	"log"
+	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/company/microservice-template/internal/auth"
 	"github.com/company/microservice-template/internal/config"
 	"github.com/company/microservice-template/internal/handlers"
 	"github.com/company/microservice-template/internal/middleware"
+	"github.com/company/microservice-template/internal/repositories"
 	"github.com/company/microservice-template/internal/services"
 	"github.com/company/microservice-template/pkg/logger"
-	"github.com/company/microservice-template/pkg/vault"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	_ "github.com/lib/pq"
 )
 
 // @title Microservice Template API
@@ -30,15 +34,55 @@ func main() {
 	// Inicializar logger
 	logger := logger.NewLogger(cfg.LogLevel)
 	
-	// Inicializar cliente de Vault (comentado para testing)
-	// vaultClient, err := vault.NewClient(cfg.VaultConfig)
-	// if err != nil {
-	// 	logger.Fatal("Failed to initialize Vault client", err)
-	// }
+	// Inicializar base de datos
+	db, err := initDatabase(cfg, logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize database", err)
+	}
+	defer db.Close()
 	
-	// Inicializar servicios
+	// Inicializar Redis (opcional)
+	var redisClient *redis.Client
+	if cfg.Redis.Enabled {
+		redisClient = initRedis(cfg, logger)
+		defer redisClient.Close()
+	}
+	
+	// Inicializar JWT manager
+	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.Issuer)
+	
+	// Inicializar repositorios
+	conversationRepo := repositories.NewPostgresConversationRepository(db, logger)
+	messageRepo := repositories.NewPostgresMessageRepository(db, logger)
+	attachmentRepo := repositories.NewPostgresAttachmentRepository(db, logger)
+	
+	// Inicializar servicios auxiliares
+	var cacheService services.CacheService
+	if redisClient != nil {
+		cacheService = services.NewRedisCacheService(redisClient, logger)
+	} else {
+		cacheService = services.NewNoOpCacheService()
+	}
+	
+	var eventPublisher services.EventPublisher
+	if redisClient != nil && cfg.Events.Provider == "redis" {
+		eventPublisher = services.NewRedisEventPublisher(redisClient, cfg.Events.Topic, logger)
+	} else {
+		eventPublisher = services.NewNoOpEventPublisher()
+	}
+	
+	fileService := services.NewLocalFileService(&cfg.FileStorage, logger)
+	
+	// Inicializar servicios principales
 	healthService := services.NewHealthService()
-	// exampleService := services.NewExampleService(vaultClient, logger)
+	messagingService := services.NewMessagingService(
+		conversationRepo,
+		messageRepo,
+		attachmentRepo,
+		eventPublisher,
+		cacheService,
+		logger,
+	)
 	
 	// Configurar Gin
 	if cfg.Environment == "production" {
@@ -52,7 +96,7 @@ func main() {
 	router.Use(middleware.Metrics())
 	
 	// Rutas
-	handlers.SetupRoutes(router, healthService, logger)
+	handlers.SetupRoutes(router, healthService, messagingService, fileService, jwtManager, logger)
 	
 	// Servidor HTTP
 	srv := &http.Server{
@@ -83,4 +127,53 @@ func main() {
 	}
 	
 	logger.Info("Server exited")
+}
+
+func initDatabase(cfg *config.Config, logger logger.Logger) (*sql.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Name,
+		cfg.Database.SSLMode,
+	)
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// Test connection
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	logger.Info("Database connection established successfully")
+	return db, nil
+}
+
+func initRedis(cfg *config.Config, logger logger.Logger) *redis.Client {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Ping(ctx).Err(); err != nil {
+		logger.Error("Failed to connect to Redis", err)
+		return nil
+	}
+
+	logger.Info("Redis connection established successfully")
+	return client
 }
