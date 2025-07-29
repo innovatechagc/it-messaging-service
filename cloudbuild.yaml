@@ -52,13 +52,14 @@ steps:
           --region=us-east1 \
           --platform=managed \
           --allow-unauthenticated \
-          --set-env-vars="ENVIRONMENT=test,LOG_LEVEL=info" \
+          --set-env-vars="ENVIRONMENT=test,LOG_LEVEL=info,DB_HOST=localhost,DB_PORT=5432,DB_USER=postgres,DB_NAME=messaging_service,DB_SSL_MODE=disable,REDIS_ENABLED=false" \
           --update-secrets="JWT_SECRET=it-chatbot-jwt-password:latest,DB_PASSWORD=it-chatbot-db-password:latest" \
-          --memory=256Mi \
+          --memory=512Mi \
           --cpu=1 \
           --max-instances=10 \
           --min-instances=1 \
-          --port=8080
+          --port=8080 \
+          --timeout=300
     id: "deploy-staging"
     waitFor: ["push-sha", "push-latest"]
 
@@ -75,13 +76,14 @@ steps:
             --region=us-east1 \
             --platform=managed \
             --allow-unauthenticated \
-            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=warn" \
+            --set-env-vars="ENVIRONMENT=production,LOG_LEVEL=warn,DB_HOST=localhost,DB_PORT=5432,DB_USER=postgres,DB_NAME=messaging_service,DB_SSL_MODE=disable,REDIS_ENABLED=false" \
             --update-secrets="JWT_SECRET=it-chatbot-jwt-password:latest,DB_PASSWORD=it-chatbot-db-password:latest" \
-            --memory=512Mi \
+            --memory=1Gi \
             --cpu=1 \
             --max-instances=100 \
             --min-instances=2 \
-            --port=8080
+            --port=8080 \
+            --timeout=300
           echo "Deployed to production"
         else
           echo "Skipping production deployment - not on main/master branch"
