@@ -8,7 +8,6 @@ spec:
   template:
     metadata:
       annotations:
-        run.googleapis.com/cloudsql-instances: "YOUR_PROJECT_ID:YOUR_REGION:YOUR_PROD_INSTANCE_ID"
         autoscaling.knative.dev/maxScale: "100"
         autoscaling.knative.dev/minScale: "2"
         run.googleapis.com/cpu-throttling: "false"
@@ -26,17 +25,17 @@ spec:
         - name: LOG_LEVEL
           value: "warn"
         - name: DB_HOST
-          value: "/cloudsql/YOUR_PROJECT_ID:YOUR_REGION:YOUR_PROD_INSTANCE_ID"
+          value: "35.227.10.150"
         - name: DB_PORT
           value: "5432"
         - name: DB_USER
-          value: "your_prod_user" # Replace with your production DB user
+          value: "postgres"
         - name: DB_NAME
-          value: "messaging_service" # Or your production DB name
+          value: "postgres"
         - name: DB_SSL_MODE
           value: "disable"
         - name: REDIS_ENABLED
-          value: "false" # Or true if you use it in prod
+          value: "false"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:

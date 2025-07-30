@@ -8,7 +8,6 @@ spec:
   template:
     metadata:
       annotations:
-        run.googleapis.com/cloudsql-instances: "YOUR_PROJECT_ID:YOUR_REGION:YOUR_INSTANCE_ID"
         autoscaling.knative.dev/maxScale: "10"
         autoscaling.knative.dev/minScale: "1"
         run.googleapis.com/cpu-throttling: "false"
@@ -26,16 +25,15 @@ spec:
         - name: LOG_LEVEL
           value: "info"
         - name: DB_HOST
-          # The value is the path to the socket for the Cloud SQL instance.
-          value: "/cloudsql/YOUR_PROJECT_ID:YOUR_REGION:YOUR_INSTANCE_ID"
+          value: "35.227.10.150"
         - name: DB_PORT
-          value: "5432" # This is ignored when using a Unix socket but good to have.
+          value: "5432"
         - name: DB_USER
-          value: "postgres" # Or your staging DB user
+          value: "postgres"
         - name: DB_NAME
-          value: "messaging_service" # Or your staging DB name
+          value: "postgres"
         - name: DB_SSL_MODE
-          value: "disable" # SSL is not needed for the socket connection.
+          value: "disable"
         - name: REDIS_ENABLED
           value: "false"
         - name: JWT_SECRET
