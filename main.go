@@ -150,7 +150,7 @@ func main() {
 	logger.Info("Server exited")
 }
 
-func initDatabase(dbCfg *config.Database, logger logger.Logger) (*sql.DB, error) {
+func initDatabase(dbCfg *config.DatabaseConfig, logger logger.Logger) (*sql.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		dbCfg.Host,
 		dbCfg.Port,
@@ -183,7 +183,7 @@ func initDatabase(dbCfg *config.Database, logger logger.Logger) (*sql.DB, error)
 	return db, nil
 }
 
-func initRedis(redisCfg *config.Redis, logger logger.Logger) *redis.Client {
+func initRedis(redisCfg *config.RedisConfig, logger logger.Logger) *redis.Client {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", redisCfg.Host, redisCfg.Port),
 		Password: redisCfg.Password,
