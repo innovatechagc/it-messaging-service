@@ -34,12 +34,21 @@ func main() {
 	// Inicializar logger
 	logger := logger.NewLogger(cfg.LogLevel)
 	
-	// Inicializar base de datos
-	db, err := initDatabase(cfg, logger)
-	if err != nil {
-		logger.Fatal("Failed to initialize database", err)
+	// Inicializar base de datos (no fatal si falla)
+	var db *sql.DB
+	var err error
+	
+	// Intentar conectar a la base de datos, pero no fallar si no puede
+	if cfg.Database.Host != "" && cfg.Database.Password != "" {
+		db, err = initDatabase(cfg, logger)
+		if err != nil {
+			logger.Error("Failed to initialize database, continuing without DB", err)
+		} else {
+			defer db.Close()
+		}
+	} else {
+		logger.Info("Database configuration not complete, running without DB")
 	}
-	defer db.Close()
 	
 	// Inicializar Redis (opcional)
 	var redisClient *redis.Client
@@ -51,10 +60,21 @@ func main() {
 	// Inicializar JWT manager
 	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.Issuer)
 	
-	// Inicializar repositorios
-	conversationRepo := repositories.NewPostgresConversationRepository(db, logger)
-	messageRepo := repositories.NewPostgresMessageRepository(db, logger)
-	attachmentRepo := repositories.NewPostgresAttachmentRepository(db, logger)
+	// Inicializar repositorios (con manejo de DB nula)
+	var conversationRepo repositories.ConversationRepository
+	var messageRepo repositories.MessageRepository
+	var attachmentRepo repositories.AttachmentRepository
+	
+	if db != nil {
+		conversationRepo = repositories.NewPostgresConversationRepository(db, logger)
+		messageRepo = repositories.NewPostgresMessageRepository(db, logger)
+		attachmentRepo = repositories.NewPostgresAttachmentRepository(db, logger)
+	} else {
+		// Usar repositorios mock/no-op cuando no hay DB
+		conversationRepo = repositories.NewNoOpConversationRepository()
+		messageRepo = repositories.NewNoOpMessageRepository()
+		attachmentRepo = repositories.NewNoOpAttachmentRepository()
+	}
 	
 	// Inicializar servicios auxiliares
 	var cacheService services.CacheService

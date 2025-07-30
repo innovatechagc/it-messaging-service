@@ -8,6 +8,7 @@ spec:
   template:
     metadata:
       annotations:
+        run.googleapis.com/cloudsql-instances: "YOUR_PROJECT_ID:YOUR_REGION:YOUR_PROD_INSTANCE_ID"
         autoscaling.knative.dev/maxScale: "100"
         autoscaling.knative.dev/minScale: "2"
         run.googleapis.com/cpu-throttling: "false"
@@ -16,7 +17,7 @@ spec:
       containerConcurrency: 100
       timeoutSeconds: 300
       containers:
-      - image: gcr.io/PROJECT_ID/it-messaging-service:latest
+      - image: gcr.io/PROJECT_ID/it-messaging-service:latest # This will be replaced by the build script
         ports:
         - containerPort: 8080
         env:
@@ -24,6 +25,18 @@ spec:
           value: "production"
         - name: LOG_LEVEL
           value: "warn"
+        - name: DB_HOST
+          value: "/cloudsql/YOUR_PROJECT_ID:YOUR_REGION:YOUR_PROD_INSTANCE_ID"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "your_prod_user" # Replace with your production DB user
+        - name: DB_NAME
+          value: "messaging_service" # Or your production DB name
+        - name: DB_SSL_MODE
+          value: "disable"
+        - name: REDIS_ENABLED
+          value: "false" # Or true if you use it in prod
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
