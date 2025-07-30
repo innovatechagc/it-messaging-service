@@ -35,6 +35,14 @@ func main() {
 	// Inicializar logger
 	logger := logger.NewLogger(cfg.LogLevel)
 
+	// Log startup information
+	logger.Info("=== IT Messaging Service Starting ===")
+	logger.Info("Environment: " + cfg.Environment)
+	logger.Info("Port: " + cfg.Port)
+	logger.Info("Log Level: " + cfg.LogLevel)
+	logger.Info("DB Host: " + cfg.Database.Host)
+	logger.Info("Redis Enabled: " + fmt.Sprintf("%t", cfg.Redis.Enabled))
+
 	// Inicializar base de datos (no fatal si falla)
 	var db *sql.DB
 	var err error
@@ -54,8 +62,16 @@ func main() {
 	// Inicializar Redis (opcional)
 	var redisClient *redis.Client
 	if cfg.Redis.Enabled {
+		logger.Info("Attempting to connect to Redis...")
 		redisClient = initRedis(&cfg.Redis, logger)
-		defer redisClient.Close()
+		if redisClient != nil {
+			defer redisClient.Close()
+			logger.Info("Redis connection successful")
+		} else {
+			logger.Info("Redis connection failed, continuing without Redis")
+		}
+	} else {
+		logger.Info("Redis disabled in configuration")
 	}
 
 	// Inicializar JWT manager
@@ -92,7 +108,9 @@ func main() {
 		eventPublisher = services.NewNoOpEventPublisher()
 	}
 
+	logger.Info("Initializing file service...")
 	fileService := services.NewLocalFileService(&cfg.FileStorage, logger)
+	logger.Info("File service initialized")
 
 	// Inicializar servicios principales
 	healthService := services.NewHealthService()
@@ -127,7 +145,8 @@ func main() {
 
 	// Iniciar servidor en goroutine
 	go func() {
-		logger.Info("Starting server on port " + cfg.Port)
+		logger.Info("Starting HTTP server on port " + cfg.Port)
+		logger.Info("Server configuration: Environment=" + cfg.Environment + ", LogLevel=" + cfg.LogLevel)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start server", err)
 		}

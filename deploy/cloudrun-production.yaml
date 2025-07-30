@@ -14,7 +14,7 @@ spec:
         run.googleapis.com/execution-environment: gen2
     spec:
       containerConcurrency: 100
-      timeoutSeconds: 300
+      timeoutSeconds: 600
       containers:
       - image: gcr.io/PROJECT_ID/it-messaging-service:latest # This will be replaced by the build script
         ports:
