@@ -12,14 +12,15 @@ import (
 
 	"github.com/company/microservice-template/internal/auth"
 	"github.com/company/microservice-template/internal/config"
+	"github.com/company/microservice-template/internal/domain"
 	"github.com/company/microservice-template/internal/handlers"
 	"github.com/company/microservice-template/internal/middleware"
 	"github.com/company/microservice-template/internal/repositories"
 	"github.com/company/microservice-template/internal/services"
 	"github.com/company/microservice-template/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 )
 
 // @title Microservice Template API
@@ -30,17 +31,17 @@ import (
 func main() {
 	// Cargar configuración
 	cfg := config.Load()
-	
+
 	// Inicializar logger
 	logger := logger.NewLogger(cfg.LogLevel)
-	
+
 	// Inicializar base de datos (no fatal si falla)
 	var db *sql.DB
 	var err error
-	
+
 	// Intentar conectar a la base de datos, pero no fallar si no puede
 	if cfg.Database.Host != "" && cfg.Database.Password != "" {
-		db, err = initDatabase(cfg, logger)
+		db, err = initDatabase(&cfg.Database, logger)
 		if err != nil {
 			logger.Error("Failed to initialize database, continuing without DB", err)
 		} else {
@@ -49,22 +50,22 @@ func main() {
 	} else {
 		logger.Info("Database configuration not complete, running without DB")
 	}
-	
+
 	// Inicializar Redis (opcional)
 	var redisClient *redis.Client
 	if cfg.Redis.Enabled {
-		redisClient = initRedis(cfg, logger)
+		redisClient = initRedis(&cfg.Redis, logger)
 		defer redisClient.Close()
 	}
-	
+
 	// Inicializar JWT manager
 	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.Issuer)
-	
+
 	// Inicializar repositorios (con manejo de DB nula)
-	var conversationRepo repositories.ConversationRepository
-	var messageRepo repositories.MessageRepository
-	var attachmentRepo repositories.AttachmentRepository
-	
+	var conversationRepo domain.ConversationRepository
+	var messageRepo domain.MessageRepository
+	var attachmentRepo domain.AttachmentRepository
+
 	if db != nil {
 		conversationRepo = repositories.NewPostgresConversationRepository(db, logger)
 		messageRepo = repositories.NewPostgresMessageRepository(db, logger)
@@ -75,7 +76,7 @@ func main() {
 		messageRepo = repositories.NewNoOpMessageRepository()
 		attachmentRepo = repositories.NewNoOpAttachmentRepository()
 	}
-	
+
 	// Inicializar servicios auxiliares
 	var cacheService services.CacheService
 	if redisClient != nil {
@@ -83,16 +84,16 @@ func main() {
 	} else {
 		cacheService = services.NewNoOpCacheService()
 	}
-	
+
 	var eventPublisher services.EventPublisher
 	if redisClient != nil && cfg.Events.Provider == "redis" {
 		eventPublisher = services.NewRedisEventPublisher(redisClient, cfg.Events.Topic, logger)
 	} else {
 		eventPublisher = services.NewNoOpEventPublisher()
 	}
-	
+
 	fileService := services.NewLocalFileService(&cfg.FileStorage, logger)
-	
+
 	// Inicializar servicios principales
 	healthService := services.NewHealthService()
 	messagingService := services.NewMessagingService(
@@ -103,27 +104,27 @@ func main() {
 		cacheService,
 		logger,
 	)
-	
+
 	// Configurar Gin
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.Logger(logger))
 	router.Use(middleware.CORS())
 	router.Use(middleware.Metrics())
-	
+
 	// Rutas
 	handlers.SetupRoutes(router, healthService, messagingService, fileService, jwtManager, logger)
-	
+
 	// Servidor HTTP
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: router,
 	}
-	
+
 	// Iniciar servidor en goroutine
 	go func() {
 		logger.Info("Starting server on port " + cfg.Port)
@@ -131,32 +132,32 @@ func main() {
 			logger.Fatal("Failed to start server", err)
 		}
 	}()
-	
+
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	
+
 	logger.Info("Shutting down server...")
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Fatal("Server forced to shutdown", err)
 	}
-	
+
 	logger.Info("Server exited")
 }
 
-func initDatabase(cfg *config.Config, logger logger.Logger) (*sql.DB, error) {
+func initDatabase(dbCfg *config.Database, logger logger.Logger) (*sql.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Name,
-		cfg.Database.SSLMode,
+		dbCfg.Host,
+		dbCfg.Port,
+		dbCfg.User,
+		dbCfg.Password,
+		dbCfg.Name,
+		dbCfg.SSLMode,
 	)
 
 	db, err := sql.Open("postgres", dsn)
@@ -164,8 +165,12 @@ func initDatabase(cfg *config.Config, logger logger.Logger) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
 
+	// Create a context with a timeout for the ping to avoid long waits on startup
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Test connection
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -178,11 +183,11 @@ func initDatabase(cfg *config.Config, logger logger.Logger) (*sql.DB, error) {
 	return db, nil
 }
 
-func initRedis(cfg *config.Config, logger logger.Logger) *redis.Client {
+func initRedis(redisCfg *config.Redis, logger logger.Logger) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
+		Addr:     fmt.Sprintf("%s:%s", redisCfg.Host, redisCfg.Port),
+		Password: redisCfg.Password,
+		DB:       redisCfg.DB,
 	})
 
 	// Test connection
