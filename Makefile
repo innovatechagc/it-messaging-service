@@ -139,3 +139,22 @@ dev-setup: deps docker-dev migrate-up seed ## Setup completo para desarrollo
 	@echo "Entorno de desarrollo listo!"
 
 dev-reset: docker-down clean dev-setup ## Reset completo del entorno de desarrollo
+
+# Local testing helpers
+local-setup: ## Configurar entorno de pruebas locales
+	./scripts/local-test-setup.sh
+
+generate-jwt: ## Generar tokens JWT para testing
+	go run scripts/generate-jwt.go
+
+test-api: ## Probar endpoints básicos de la API
+	@echo "Probando health check..."
+	curl -s http://localhost:8080/api/v1/health | jq .
+	@echo "\nProbando readiness check..."
+	curl -s http://localhost:8080/api/v1/ready | jq .
+
+postman-test: generate-jwt ## Generar tokens y mostrar instrucciones para Postman
+	@echo "Tokens JWT generados. Instrucciones para Postman:"
+	@echo "1. Importa postman_collection.json en Postman"
+	@echo "2. Configura la variable jwt_token con uno de los tokens generados"
+	@echo "3. Ejecuta las requests en el orden sugerido"

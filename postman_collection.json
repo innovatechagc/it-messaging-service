@@ -1,0 +1,402 @@
+{
+	"info": {
+		"_postman_id": "messaging-service-api",
+		"name": "IT Messaging Service API",
+		"description": "Colección completa para probar la API del servicio de mensajería",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "api_version",
+			"value": "v1",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "conversation_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "message_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "attachment_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health Checks",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "health"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/ready",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "ready"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Conversations",
+			"item": [
+				{
+					"name": "Get Conversations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations?limit=20&offset=0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations"],
+							"query": [
+								{
+									"key": "channel",
+									"value": "whatsapp",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "active",
+									"disabled": true
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Conversation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.collectionVariables.set('conversation_id', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"channel\": \"whatsapp\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Conversation by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Conversation Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"closed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Messages",
+			"item": [
+				{
+					"name": "Get Messages from Conversation",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}/messages?limit=50&offset=0",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}", "messages"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Text Message",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.collectionVariables.set('message_id', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"type\": \"text\",\n    \"content\": \"Hola, este es un mensaje de prueba desde Postman\",\n    \"metadata\": {\n        \"source\": \"postman_test\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}/messages",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}", "messages"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send AI Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"type\": \"ai_response\",\n    \"content\": \"¿En qué puedo ayudarte hoy?\",\n    \"ai_context\": {\n        \"model\": \"gpt-3.5-turbo\",\n        \"prompt\": \"Responde de manera amigable\",\n        \"confidence\": 0.95\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}/messages",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}", "messages"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message with Attachment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"type\": \"file\",\n    \"content\": \"Archivo adjunto\",\n    \"attachments\": [\n        {\n            \"url\": \"http://localhost:8080/uploads/example.pdf\",\n            \"filename\": \"documento.pdf\",\n            \"type\": \"document\",\n            \"size\": 1024\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/conversations/{{conversation_id}}/messages",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "conversations", "{{conversation_id}}", "messages"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Message by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/messages/{{message_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "messages", "{{message_id}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Attachments",
+			"item": [
+				{
+					"name": "Upload File",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.url) {",
+									"        // Extraer ID del attachment de la URL si es necesario",
+									"        console.log('File uploaded:', response.data.url);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/attachments/upload",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "attachments", "upload"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Attachment Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/{{api_version}}/messaging/attachments/{{attachment_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "{{api_version}}", "messaging", "attachments", "{{attachment_id}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Documentation",
+			"item": [
+				{
+					"name": "Swagger UI",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/swagger/index.html",
+							"host": ["{{base_url}}"],
+							"path": ["swagger", "index.html"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
